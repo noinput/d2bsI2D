@@ -19,8 +19,10 @@
 import json
 import requests
 import time
+import random
 import re
-
+import string
+	
 # discord webhook url
 discord_webhook = 'https://discordapp.com/api/webhooks/00000000000000/0000000000000000000000000000000'
 
@@ -30,7 +32,7 @@ itemlog = 'C:\\Users\\bob\\Desktop\\d2bot-with-kolbot-master\\d2bs\\kolbot\\logs
 
 # limit of lines in itemlog.txt before we try to empty it
 # if this gets too big it might stall your system
-itemlog_max_lines = 1000
+itemlog_max_lines = 5000
 
 # sleep time in seconds between each check of itemlog.txt
 sleep_between_checks = 30
@@ -52,6 +54,11 @@ def send_to_discord(message):
 	payload = json.dumps(data, indent=4)
 
 	r = requests.post(discord_webhook, data=payload, headers=headers)
+
+# function for generating an 'unique ID' for an event (assume no collision)
+def generate_event_id(n):
+	id = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(n))
+	return id
 
 # empty the logfile by opening in write-mode and closing again
 def empty_logfile():
@@ -112,8 +119,11 @@ def main():
 					# format stats for discord
 					stats = stats.replace('| ', '\n')
 
+					# create event ID
+					item_id = generate_event_id(8)
+
 					# format discord output message
-					discord_message = f'character **{character}** performed **{action}** on **{quality.upper()} {item}**'
+					discord_message = f'character **{character}** performed **{action}** on **{quality.upper()} {item}** /id: **#{item_id}**'
 
 					# add stats to discord output if they are present in the itemlog
 					if stats != '':
