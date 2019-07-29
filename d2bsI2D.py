@@ -41,7 +41,7 @@ sleep_between_checks = 30
 skipped_qualities = ['normal', 'magic', 'rare']
 
 # actions to skip
-skipped_actions = ['stashed']
+skipped_actions = ['Stashed', 'Sold']
 
 # actions to always post regardless of quality and action
 always_actions = ['Kept', 'Cubing Kept', 'Gambled', 'Runeword Kept']
@@ -57,15 +57,14 @@ def send_to_discord(message):
 
 # function for generating an 'unique ID' for an event (assume no collision)
 def generate_event_id(n):
-	id = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(n))
+	id = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for _ in range(n))
 	return id
 
 # empty the logfile by opening in write-mode and closing again
 def empty_logfile():
 	try:
 		with open(itemlog, "w"):
-			pass
-		return True
+			return True
 	except:
 		return False
 
@@ -77,7 +76,7 @@ def main():
 			with open(itemlog) as f:
 				lines = f.readlines()
 		except:
-			print('[FAIL] failed to open itemlog! will retry next loop!')
+			print(f'[FAIL] failed to open itemlog - retrying in {sleep_between_checks} seconds..')
 			time.sleep(sleep_between_checks)
 			continue
 
@@ -98,15 +97,11 @@ def main():
 					action = match.group(3)
 					quality = match.group(4)
 					item = match.group(5)
-					stats = ''
-
+					stats = match.group(6) if len(match.groups()) == 7 else ''
+					
 					# fix for sold item parsing
 					if item.split(' ')[0] == 'Cost:':
-						item = match.group(6).split(' | ')[1]
-
-					# if there is 7 matches that means we got stats for the item
-					if len(match.groups()) == 7:
-						stats = match.group(6)
+						item = match.group(6).split(' | ')[1]					
 
 					# check if quality is to be skipped
 					if quality in skipped_qualities and action not in always_actions:
@@ -120,10 +115,10 @@ def main():
 					stats = stats.replace('| ', '\n')
 
 					# create event ID
-					item_id = generate_event_id(8)
+					event_id = generate_event_id(8)
 
 					# format discord output message
-					discord_message = f'character **{character}** performed **{action}** on **{quality.upper()} {item}** /id: **#{item_id}**'
+					discord_message = f'character **{character}** performed **{action}** on **{quality.upper()} {item}** /id: **#{event_id}**'
 
 					# add stats to discord output if they are present in the itemlog
 					if stats != '':
