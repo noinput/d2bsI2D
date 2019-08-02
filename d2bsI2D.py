@@ -17,6 +17,7 @@
 # crafted = 8
 
 import json
+import os
 import requests
 import time
 import random
@@ -30,6 +31,10 @@ discord_webhook = 'https://discordapp.com/api/webhooks/00000000000000/0000000000
 # c:\users\bob\ ==> should be ==> c:\\users\\bob\\
 itemlog = 'C:\\Users\\bob\\Desktop\\d2bot-with-kolbot-master\\d2bs\\kolbot\\logs\\ItemLog.txt'
 
+# path to data folder (remember to escape)
+# c:\users\bob\ ==> should be ==> c:\\users\\bob\\
+datadir = 'C:\\Users\\bob\\Desktop\\d2bot-with-kolbot-master\\d2bs\\kolbot\\data'
+
 # limit of lines in itemlog.txt before we try to empty it
 # if this gets too big it might stall your system
 itemlog_max_lines = 5000
@@ -37,14 +42,13 @@ itemlog_max_lines = 5000
 # sleep time in seconds between each check of itemlog.txt
 sleep_between_checks = 30
 
-# item qualities to skip (bot logs cubing stuff etc to the logfile)
-skipped_qualities = ['normal', 'magic', 'rare']
+# actions to post
+# valid actions:
+# "Sold", "Shopped", "Gambled", "Dropped", "No room for"
+# "Kept", "Field Kept", "Runeword Kept", "Cubing Kept"
+always_actions = ['Kept', 'Field Kept', 'Runeword Kept', 'Cubing Kept', 'Gambled']
 
-# actions to skip
-skipped_actions = ['Stashed', 'Sold']
-
-# actions to always post regardless of quality and action
-always_actions = ['Kept', 'Cubing Kept', 'Gambled', 'Runeword Kept']
+# == END OF SETTINGS ==
 
 # function for sending messages to discord via webhook
 def send_to_discord(message):
@@ -68,6 +72,16 @@ def empty_logfile():
 	except:
 		return False
 
+# will try to get lastArea from the profile json
+def get_last_area(character):
+	try:
+		character_json = os.path.join(datadir, character + '.json')
+		with open(character_json) as f:
+			data = json.load(f)
+			return data['lastArea']
+	except:
+		return 'Unknown Area'
+
 def main():
 	current_line = 0
 
@@ -88,9 +102,8 @@ def main():
 		for idx, line in enumerate(lines):
 			if idx >= current_line:
 
-				# try to parse line and extract the info we need
 				match = re.search('\[(.+?)\] <(.+?)> <(.+?)> \((.+?)\) (.+?)( \| (.+?)$|$)', line)
-				
+
 				if match:
 					timestamp = match.group(1)
 					character = match.group(2)
@@ -98,17 +111,14 @@ def main():
 					quality = match.group(4)
 					item = match.group(5)
 					stats = match.group(6) if len(match.groups()) == 7 else ''
-					
+					area = get_last_area(character)
+
 					# fix for sold item parsing
 					if item.split(' ')[0] == 'Cost:':
 						item = match.group(6).split(' | ')[1]					
 
-					# check if quality is to be skipped
-					if quality in skipped_qualities and action not in always_actions:
-						continue
-					
 					# check if action is to be skipped
-					if action in skipped_actions and action not in always_actions:
+					if action not in always_actions:
 						continue
 
 					# format stats for discord
@@ -118,14 +128,14 @@ def main():
 					event_id = generate_event_id(8)
 
 					# format discord output message
-					discord_message = f'character **{character}** performed **{action}** on **{quality.upper()} {item}** /id: **#{event_id}**'
+					discord_message = f'[{character}] with **{action}** on **{quality.upper()} {item}** from **{area}** /id: **#{event_id}**'
 
 					# add stats to discord output if they are present in the itemlog
 					if stats != '':
 						discord_message += f'\n`{stats}`'
 					
 					# finally post info to console and send message to discord
-					print('[NEW ITEM]', timestamp, character, quality.upper(), item, '=>', action.upper())
+					print('[NEW ITEM]', timestamp, character, area, quality.upper(), item, '=>', action.upper())
 
 					# skip discord posting if item was part of a recipe
 					if not re.search('\{Cubing \d+\}$|\{Cubing-(.+?)\}$', line):
@@ -153,5 +163,6 @@ def main():
 if __name__ == '__main__':
 	print(f'[START] Greetings! :-)')
 	print(f'[OK] logfile: {itemlog}')
+	print(f'[OK] datadir: {datadir}')
 	print(f'------------')
 	main()
